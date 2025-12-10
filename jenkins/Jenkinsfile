@@ -91,13 +91,22 @@ pipeline {
          * DEPLOY USING TERRAFORM
          ******************************/
         stage('Deploy Infra') {
-            steps {
-                sh '''
-                    cd $WORKSPACE/terraform
-                    terraform init
-                    terraform apply -auto-approve
-                '''
-            }
+           steps {
+              sh '''
+                  echo "📁 Listing Workspace"
+                  ls -R $WORKSPACE
+
+                  echo "🚀 Navigating to Terraform Directory"
+                  cd $WORKSPACE/terraform
+
+                  echo "🌍 Initializing Terraform"
+                  terraform init
+
+                  echo "📦 Applying Terraform"
+                  terraform apply -auto-approve
+              '''
+           }
         }
+
     }
 }
