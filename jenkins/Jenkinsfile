@@ -39,9 +39,8 @@ pipeline {
             steps {
                 sh '''
                     apk add --update curl bash git unzip
-                    rm -rf terraform.zip
+                    rm -rf terraform terraform.zip
                     curl -fsSL https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip -o terraform.zip
-                    rm -rf /usr/local/bin/terraform
                     unzip -o terraform.zip
                     mv terraform /usr/local/bin/
                     chmod +x /usr/local/bin/terraform
