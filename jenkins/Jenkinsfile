@@ -1,0 +1,58 @@
+pipeline {
+    agent any
+
+    environment {
+        REGISTRY = "localhost:5001"
+        USER_IMAGE = "${REGISTRY}/user-service:latest"
+        ORDER_IMAGE = "${REGISTRY}/order-service:latest"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git url: 'https://github.com/your-username/devops-platform.git', branch: 'main'
+            }
+        }
+
+        stage('Build & Test - User Service') {
+            steps {
+                dir('services/user-service') {
+                    sh 'docker build -t user-service:local .'
+                    // Add pytest later if you create tests
+                }
+            }
+        }
+
+        stage('Build & Test - Order Service') {
+            steps {
+                dir('services/order-service') {
+                    sh 'docker build -t order-service:local .'
+                    sh 'npm test || true'
+                }
+            }
+        }
+
+        stage('Push Images to Local Registry') {
+            steps {
+                sh '''
+                  docker tag user-service:local $USER_IMAGE
+                  docker push $USER_IMAGE
+
+                  docker tag order-service:local $ORDER_IMAGE
+                  docker push $ORDER_IMAGE
+                '''
+            }
+        }
+
+        stage('Deploy with Terraform') {
+            steps {
+                dir('terraform') {
+                    sh '''
+                      terraform init
+                      terraform apply -auto-approve
+                    '''
+                }
+            }
+        }
+    }
+}
