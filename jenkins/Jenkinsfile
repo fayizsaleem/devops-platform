@@ -1,27 +1,28 @@
 pipeline {
-    agent any
 
-    environment {
-        REGISTRY = "localhost:5001"
-    }
+    agent any
 
     stages {
 
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/fayizsaleem/devops-platform.git', credentialsId: 'github-token'
+                git branch: 'main',
+                    url: 'https://github.com/fayizsaleem/devops-platform.git',
+                    credentialsId: 'github-token'
             }
         }
 
         stage('Install Terraform') {
             steps {
                 sh '''
-                    apk add --update curl bash git unzip
-                    rm -rf terraform terraform.zip
+                    echo "🚀 Installing Terraform..."
+
+                    sudo apt-get update -y
+                    sudo apt-get install -y curl unzip
+
                     curl -fsSL https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip -o terraform.zip
-                    unzip -o terraform.zip
-                    mv terraform /usr/local/bin/
-                    chmod +x /usr/local/bin/terraform
+                    sudo unzip -o terraform.zip -d /usr/local/bin/
+                    sudo chmod +x /usr/local/bin/terraform
                     terraform -version
                 '''
             }
@@ -38,9 +39,10 @@ pipeline {
         stage('Build Order Service') {
             steps {
                 dir('services/order-service') {
-                    sh 'docker build -t order-service:local .'
-                    // ignore npm test for now
-                    sh 'echo "Skipping tests for now 🚫 npm test"'
+                    sh '''
+                        docker build -t order-service:local .
+                        echo "⚠️ Skipping npm test (no node on host)"
+                    '''
                 }
             }
         }
@@ -48,10 +50,13 @@ pipeline {
         stage('Push Images') {
             steps {
                 sh '''
-                    docker tag user-service:local $REGISTRY/user-service:latest
-                    docker tag order-service:local $REGISTRY/order-service:latest
-                    docker push $REGISTRY/user-service:latest
-                    docker push $REGISTRY/order-service:latest
+                    echo "📦 Pushing to Local Registry..."
+
+                    docker tag user-service:local localhost:5001/user-service:latest
+                    docker push localhost:5001/user-service:latest
+
+                    docker tag order-service:local localhost:5001/order-service:latest
+                    docker push localhost:5001/order-service:latest
                 '''
             }
         }
@@ -59,13 +64,8 @@ pipeline {
         stage('Deploy Infra') {
             steps {
                 sh '''
-                    echo "🔍 Checking Terraform Folder"
-                    if [ ! -d "$WORKSPACE/terraform" ]; then
-                        unzip -o $WORKSPACE/terraform.zip -d $WORKSPACE/terraform
-                    fi
-
-                    echo "🚀 Running Terraform"
-                    cd $WORKSPACE/terraform
+                    echo "🚀 Deploying Terraform Infra..."
+                    cd terraform
                     terraform init
                     terraform apply -auto-approve
                 '''
@@ -73,4 +73,3 @@ pipeline {
         }
     }
 }
-
