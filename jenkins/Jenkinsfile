@@ -1,12 +1,18 @@
 pipeline {
 
+    /*****************************************
+     * USE A DOCKER CLIENT AS BUILD AGENT
+     *****************************************/
     agent {
         docker {
-            image 'jenkins/jenkins:lts'
-            args '-u root --privileged -v /var/run/docker.sock:/var/run/docker.sock -v /usr/bin/docker:/usr/bin/docker'
+            image 'docker:latest'
+            args '--privileged -v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
 
+    /*****************************************
+     * GLOBAL VARIABLES
+     *****************************************/
     environment {
         REGISTRY = "localhost:5001"
         USER_IMAGE = "${REGISTRY}/user-service:latest"
@@ -15,15 +21,35 @@ pipeline {
 
     stages {
 
+        /*****************************************
+         * CHECKOUT CODE
+         *****************************************/
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                    credentialsId: 'github-token',
-                    url: 'https://github.com/fayizsaleem/devops-platform.git'
+                credentialsId: 'github-token',
+                url: 'https://github.com/fayizsaleem/devops-platform.git'
             }
         }
 
-        stage('Build & Test - User Service') {
+        /*****************************************
+         * INSTALL TERRAFORM IN AGENT CONTAINER
+         *****************************************/
+        stage('Install Terraform') {
+            steps {
+                sh '''
+                    apk add --update curl bash git unzip
+                    curl -fsSL https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip -o terraform.zip
+                    unzip terraform.zip && mv terraform /usr/local/bin/ && chmod +x /usr/local/bin/terraform
+                    terraform -version
+                '''
+            }
+        }
+
+        /*****************************************
+         * BUILD USER SERVICE (Flask)
+         *****************************************/
+        stage('Build User Service') {
             steps {
                 dir('services/user-service') {
                     sh 'docker build -t user-service:local .'
@@ -31,7 +57,10 @@ pipeline {
             }
         }
 
-        stage('Build & Test - Order Service') {
+        /*****************************************
+         * BUILD ORDER SERVICE (Node)
+         *****************************************/
+        stage('Build Order Service') {
             steps {
                 dir('services/order-service') {
                     sh 'docker build -t order-service:local .'
@@ -40,7 +69,10 @@ pipeline {
             }
         }
 
-        stage('Push Images to Local Registry') {
+        /*****************************************
+         * PUSH IMAGES TO LOCAL REGISTRY
+         *****************************************/
+        stage('Push Images') {
             steps {
                 sh '''
                     docker tag user-service:local $USER_IMAGE
@@ -52,7 +84,10 @@ pipeline {
             }
         }
 
-        stage('Deploy with Terraform') {
+        /*****************************************
+         * DEPLOY WITH TERRAFORM
+         *****************************************/
+        stage('Deploy Infra') {
             steps {
                 dir('terraform') {
                     sh '''
@@ -64,8 +99,12 @@ pipeline {
         }
     }
 
+    /*****************************************
+     * POST ACTIONS (OPTIONAL CLEANUP)
+     *****************************************/
     post {
         always {
+            echo "🧹 Cleaning up dangling Docker images..."
             sh 'docker image prune -f || true'
         }
     }
