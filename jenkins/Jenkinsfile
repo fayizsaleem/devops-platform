@@ -93,7 +93,7 @@ pipeline {
         stage('Deploy Infra') {
             steps {
                 sh '''
-                    cd /workspace/terraform
+                    cd $WORKSPACE/terraform
                     terraform init
                     terraform apply -auto-approve
                 '''
