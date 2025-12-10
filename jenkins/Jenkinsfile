@@ -1,14 +1,9 @@
 pipeline {
 
     /*****************************************
-     * USE A DOCKER CLIENT AS BUILD AGENT
+     * USE JENKINS CONTAINER ITSELF AS AGENT
      *****************************************/
-    agent {
-        docker {
-            image 'docker:latest'
-            args '--privileged -v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+    agent any
 
     /*****************************************
      * GLOBAL VARIABLES
@@ -21,9 +16,6 @@ pipeline {
 
     stages {
 
-        /*****************************************
-         * CHECKOUT CODE
-         *****************************************/
         stage('Checkout') {
             steps {
                 git branch: 'main',
@@ -33,12 +25,13 @@ pipeline {
         }
 
         /*****************************************
-         * INSTALL TERRAFORM IN AGENT CONTAINER
+         * INSTALL TERRAFORM (Ubuntu inside Jenkins)
          *****************************************/
         stage('Install Terraform') {
             steps {
                 sh '''
-                    apk add --update curl bash git unzip
+                    apt-get update -y
+                    apt-get install -y curl unzip
                     curl -fsSL https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip -o terraform.zip
                     unzip terraform.zip && mv terraform /usr/local/bin/ && chmod +x /usr/local/bin/terraform
                     terraform -version
@@ -46,9 +39,6 @@ pipeline {
             }
         }
 
-        /*****************************************
-         * BUILD USER SERVICE (Flask)
-         *****************************************/
         stage('Build User Service') {
             steps {
                 dir('services/user-service') {
@@ -57,9 +47,6 @@ pipeline {
             }
         }
 
-        /*****************************************
-         * BUILD ORDER SERVICE (Node)
-         *****************************************/
         stage('Build Order Service') {
             steps {
                 dir('services/order-service') {
@@ -69,9 +56,6 @@ pipeline {
             }
         }
 
-        /*****************************************
-         * PUSH IMAGES TO LOCAL REGISTRY
-         *****************************************/
         stage('Push Images') {
             steps {
                 sh '''
@@ -84,9 +68,6 @@ pipeline {
             }
         }
 
-        /*****************************************
-         * DEPLOY WITH TERRAFORM
-         *****************************************/
         stage('Deploy Infra') {
             steps {
                 dir('terraform') {
