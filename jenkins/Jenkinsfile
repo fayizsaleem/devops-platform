@@ -1,30 +1,39 @@
 pipeline {
+    agent {
+        docker {
+            image 'ubuntu:22.04'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
 
-    agent any
+    environment {
+        REGISTRY = "localhost:5001"
+    }
 
     stages {
 
-        stage('Checkout') {
+        stage('Install Dependencies & Terraform') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/fayizsaleem/devops-platform.git',
-                    credentialsId: 'github-token'
+                sh '''
+                    echo "📌 Updating & Installing Tools..."
+                    apt-get update -y
+                    apt-get install -y curl unzip docker.io git
+
+                    echo "⬇️ Installing Terraform..."
+                    curl -fsSL https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip -o terraform.zip
+                    unzip -o terraform.zip
+                    mv terraform /usr/local/bin/
+                    chmod +x /usr/local/bin/terraform
+                    terraform -version
+                '''
             }
         }
 
-        stage('Install Terraform') {
+        stage('Checkout Code') {
             steps {
-                sh '''
-                    echo "🚀 Installing Terraform..."
-
-                    sudo apt-get update -y
-                    sudo apt-get install -y curl unzip
-
-                    curl -fsSL https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip -o terraform.zip
-                    sudo unzip -o terraform.zip -d /usr/local/bin/
-                    sudo chmod +x /usr/local/bin/terraform
-                    terraform -version
-                '''
+                git branch: 'main',
+                    credentialsId: 'github-token',
+                    url: 'https://github.com/fayizsaleem/devops-platform.git'
             }
         }
 
@@ -39,36 +48,33 @@ pipeline {
         stage('Build Order Service') {
             steps {
                 dir('services/order-service') {
-                    sh '''
-                        docker build -t order-service:local .
-                        echo "⚠️ Skipping npm test (no node on host)"
-                    '''
+                    sh 'docker build -t order-service:local .'
                 }
             }
         }
 
-        stage('Push Images') {
+        stage('Push to Local Registry') {
             steps {
                 sh '''
-                    echo "📦 Pushing to Local Registry..."
+                    echo "📦 Pushing Images to Local Registry..."
+                    docker tag user-service:local $REGISTRY/user-service:latest
+                    docker push $REGISTRY/user-service:latest
 
-                    docker tag user-service:local localhost:5001/user-service:latest
-                    docker push localhost:5001/user-service:latest
-
-                    docker tag order-service:local localhost:5001/order-service:latest
-                    docker push localhost:5001/order-service:latest
+                    docker tag order-service:local $REGISTRY/order-service:latest
+                    docker push $REGISTRY/order-service:latest
                 '''
             }
         }
 
-        stage('Deploy Infra') {
+        stage('Deploy Infrastructure') {
             steps {
-                sh '''
-                    echo "🚀 Deploying Terraform Infra..."
-                    cd terraform
-                    terraform init
-                    terraform apply -auto-approve
-                '''
+                dir('terraform') {
+                    sh '''
+                        echo "🚀 Deploying Terraform Infra..."
+                        terraform init
+                        terraform apply -auto-approve
+                    '''
+                }
             }
         }
     }
