@@ -1,8 +1,9 @@
 pipeline {
+
     agent {
         docker {
-            image 'docker:latest'
-            args '--privileged -u root -v /var/run/docker.sock:/var/run/docker.sock'
+            image 'docker:24.0.5-cli'   // Alpine-based Docker CLI good for CI
+            args '--privileged -u root -v /var/run/docker.sock:/var/run/docker.sock --entrypoint=""'
         }
     }
 
@@ -12,25 +13,20 @@ pipeline {
         ORDER_IMAGE = "${REGISTRY}/order-service:latest"
     }
 
-
     stages {
 
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                    credentialsId: 'github-token',
-                    url: 'https://github.com/fayizsaleem/devops-platform.git'
+                credentialsId: 'github-token',
+                url: 'https://github.com/fayizsaleem/devops-platform.git'
             }
         }
 
-        /*****************************************
-         * INSTALL TERRAFORM (Ubuntu inside Jenkins)
-         *****************************************/
         stage('Install Terraform') {
             steps {
                 sh '''
-                    apt-get update -y
-                    apt-get install -y curl unzip
+                    apk add --update curl bash git unzip
                     curl -fsSL https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip -o terraform.zip
                     unzip terraform.zip && mv terraform /usr/local/bin/ && chmod +x /usr/local/bin/terraform
                     terraform -version
@@ -60,7 +56,7 @@ pipeline {
                 sh '''
                     docker tag user-service:local $USER_IMAGE
                     docker push $USER_IMAGE
-
+                    
                     docker tag order-service:local $ORDER_IMAGE
                     docker push $ORDER_IMAGE
                 '''
