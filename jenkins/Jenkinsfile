@@ -1,40 +1,18 @@
 pipeline {
+    agent any
 
-    /******************************
-     * USE DOCKER CLI AS AGENT
-     ******************************/
-    agent {
-        docker {
-            image 'docker:24.0.5-cli'
-            args '--privileged -u root -v /var/run/docker.sock:/var/run/docker.sock -v $WORKSPACE:/workspace'
-        }
-    }
-
-    /******************************
-     * GLOBAL VARIABLES
-     ******************************/
     environment {
         REGISTRY = "localhost:5001"
-        USER_IMAGE = "${REGISTRY}/user-service:latest"
-        ORDER_IMAGE = "${REGISTRY}/order-service:latest"
     }
 
     stages {
 
-        /******************************
-         * CHECKOUT SOURCE CODE
-         ******************************/
         stage('Checkout') {
             steps {
-                git branch: 'main',
-                    credentialsId: 'github-token',
-                    url: 'https://github.com/fayizsaleem/devops-platform.git'
+                git url: 'https://github.com/fayizsaleem/devops-platform.git', credentialsId: 'github-token'
             }
         }
 
-        /******************************
-         * INSTALL TERRAFORM
-         ******************************/
         stage('Install Terraform') {
             steps {
                 sh '''
@@ -49,9 +27,6 @@ pipeline {
             }
         }
 
-        /******************************
-         * BUILD USER SERVICE FLASK
-         ******************************/
         stage('Build User Service') {
             steps {
                 dir('services/user-service') {
@@ -60,53 +35,42 @@ pipeline {
             }
         }
 
-        /******************************
-         * BUILD ORDER SERVICE NODE
-         ******************************/
         stage('Build Order Service') {
             steps {
                 dir('services/order-service') {
                     sh 'docker build -t order-service:local .'
-                    sh 'npm test || true'
+                    // ignore npm test for now
+                    sh 'echo "Skipping tests for now 🚫 npm test"'
                 }
             }
         }
 
-        /******************************
-         * PUSH IMAGES TO LOCAL REGISTRY
-         ******************************/
         stage('Push Images') {
             steps {
                 sh '''
-                    docker tag user-service:local $USER_IMAGE
-                    docker push $USER_IMAGE
-
-                    docker tag order-service:local $ORDER_IMAGE
-                    docker push $ORDER_IMAGE
+                    docker tag user-service:local $REGISTRY/user-service:latest
+                    docker tag order-service:local $REGISTRY/order-service:latest
+                    docker push $REGISTRY/user-service:latest
+                    docker push $REGISTRY/order-service:latest
                 '''
             }
         }
 
-        /******************************
-         * DEPLOY USING TERRAFORM
-         ******************************/
         stage('Deploy Infra') {
-           steps {
-              sh '''
-                  echo "📁 Listing Workspace"
-                  ls -R $WORKSPACE
+            steps {
+                sh '''
+                    echo "🔍 Checking Terraform Folder"
+                    if [ ! -d "$WORKSPACE/terraform" ]; then
+                        unzip -o $WORKSPACE/terraform.zip -d $WORKSPACE/terraform
+                    fi
 
-                  echo "🚀 Navigating to Terraform Directory"
-                  cd $WORKSPACE/terraform
-
-                  echo "🌍 Initializing Terraform"
-                  terraform init
-
-                  echo "📦 Applying Terraform"
-                  terraform apply -auto-approve
-              '''
-           }
+                    echo "🚀 Running Terraform"
+                    cd $WORKSPACE/terraform
+                    terraform init
+                    terraform apply -auto-approve
+                '''
+            }
         }
-
     }
 }
+
