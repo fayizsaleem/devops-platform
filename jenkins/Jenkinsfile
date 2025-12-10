@@ -27,8 +27,8 @@ pipeline {
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                credentialsId: 'github-token',
-                url: 'https://github.com/fayizsaleem/devops-platform.git'
+                    credentialsId: 'github-token',
+                    url: 'https://github.com/fayizsaleem/devops-platform.git'
             }
         }
 
@@ -98,5 +98,5 @@ pipeline {
             }
         }
     }
+}
 
-    
