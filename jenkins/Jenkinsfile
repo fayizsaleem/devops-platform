@@ -2,7 +2,7 @@ pipeline {
 
     agent {
         docker {
-            image 'docker:24.0.5-cli'   // Alpine-based Docker CLI good for CI
+            image 'docker:24.0.5-cli'
             args '--privileged -u root -v /var/run/docker.sock:/var/run/docker.sock --entrypoint=""'
         }
     }
@@ -28,7 +28,9 @@ pipeline {
                 sh '''
                     apk add --update curl bash git unzip
                     curl -fsSL https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip -o terraform.zip
-                    unzip terraform.zip && mv terraform /usr/local/bin/ && chmod +x /usr/local/bin/terraform
+                    unzip -o terraform.zip
+                    mv terraform /usr/local/bin/
+                    chmod +x /usr/local/bin/terraform
                     terraform -version
                 '''
             }
@@ -75,4 +77,3 @@ pipeline {
         }
     }
 }
-
