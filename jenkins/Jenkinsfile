@@ -1,11 +1,15 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'jenkins/jenkins:lts'
+            args '-u root -v /var/run/docker.sock:/var/run/docker.sock -v /usr/bin/docker:/usr/bin/docker'
+        }
+    }
 
     environment {
         REGISTRY = "localhost:5001"
         USER_IMAGE = "${REGISTRY}/user-service:latest"
         ORDER_IMAGE = "${REGISTRY}/order-service:latest"
-        PATH = "/usr/bin:/usr/local/bin:/usr/bin/docker:/usr/local/sbin:/usr/sbin:/sbin:${PATH}"
     }
 
     stages {
