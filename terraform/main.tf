@@ -12,7 +12,7 @@ provider "docker" {}
 resource "docker_network" "app_net" {
   name = "devops_app_network"
 
-  check_duplicate = "devops_app_network"
+  check_duplicate = true
 }
 
 resource "docker_image" "user_image" {
