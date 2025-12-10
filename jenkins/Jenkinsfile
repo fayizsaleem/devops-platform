@@ -1,8 +1,9 @@
 pipeline {
+
     agent {
         docker {
             image 'jenkins/jenkins:lts'
-            args '-u root -v /var/run/docker.sock:/var/run/docker.sock -v /usr/bin/docker:/usr/bin/docker'
+            args '-u root --privileged -v /var/run/docker.sock:/var/run/docker.sock -v /usr/bin/docker:/usr/bin/docker'
         }
     }
 
@@ -13,9 +14,12 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             steps {
-                git url: 'https://github.com/fayizsaleem/devops-platform.git', branch: 'main'
+                git branch: 'main',
+                    credentialsId: 'github-token',
+                    url: 'https://github.com/fayizsaleem/devops-platform.git'
             }
         }
 
@@ -23,7 +27,6 @@ pipeline {
             steps {
                 dir('services/user-service') {
                     sh 'docker build -t user-service:local .'
-                    // Add pytest later if you create tests
                 }
             }
         }
@@ -40,11 +43,11 @@ pipeline {
         stage('Push Images to Local Registry') {
             steps {
                 sh '''
-                  docker tag user-service:local $USER_IMAGE
-                  docker push $USER_IMAGE
+                    docker tag user-service:local $USER_IMAGE
+                    docker push $USER_IMAGE
 
-                  docker tag order-service:local $ORDER_IMAGE
-                  docker push $ORDER_IMAGE
+                    docker tag order-service:local $ORDER_IMAGE
+                    docker push $ORDER_IMAGE
                 '''
             }
         }
@@ -53,11 +56,18 @@ pipeline {
             steps {
                 dir('terraform') {
                     sh '''
-                      terraform init
-                      terraform apply -auto-approve
+                        terraform init
+                        terraform apply -auto-approve
                     '''
                 }
             }
         }
     }
+
+    post {
+        always {
+            sh 'docker image prune -f || true'
+        }
+    }
 }
+
