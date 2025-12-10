@@ -1,18 +1,17 @@
 pipeline {
+    agent {
+        docker {
+            image 'docker:latest'
+            args '--privileged -u root -v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
 
-    /*****************************************
-     * USE JENKINS CONTAINER ITSELF AS AGENT
-     *****************************************/
-    agent any
-
-    /*****************************************
-     * GLOBAL VARIABLES
-     *****************************************/
     environment {
         REGISTRY = "localhost:5001"
         USER_IMAGE = "${REGISTRY}/user-service:latest"
         ORDER_IMAGE = "${REGISTRY}/order-service:latest"
     }
+
 
     stages {
 
