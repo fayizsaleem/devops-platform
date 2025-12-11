@@ -13,14 +13,11 @@ provider "docker" {}
 # 🔹 NETWORK (Creates only if missing)
 ########################################
 
-data "docker_network" "existing" {
-  name = "devops_app_network"
+resource "docker_network" "app_net" {
+  name   = "devops_app_network"
+  driver = "bridge"
 }
 
-resource "docker_network" "app_net" {
-  count = data.docker_network.existing.id == "" ? 1 : 0
-  name  = "devops_app_network"
-}
 
 ########################################
 # 🔹 USER SERVICE CONTAINER (Python)
